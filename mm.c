@@ -70,14 +70,17 @@ team_t team = {
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+// static variable
+static void *heap_listp;
+
+
 /* 
  * mm_init - initialize the malloc package.
  */
 int mm_init(void)
 {
-    char *heap_listp = mem_sbrk(4*WSIZE);
     // Create the initial empty heap 
-    if ((heap_listp) == (void *)-1) 
+    if ((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1) 
         return -1;
     PUT(heap_listp, 0); // Alignment padding
     PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 1)); // Prologue header
@@ -140,7 +143,7 @@ void *mm_malloc(size_t size)
     return bp;
 }
 
-void *find_fit(size_t asize)
+static void *find_fit(size_t asize)
 {
     char *bp;
     // what is the actual function of find_fit? 
@@ -149,7 +152,35 @@ void *find_fit(size_t asize)
     // get header of blocks, and calculate to extract some information about that blocks
     // the informations are about 'allocation' 'size' 'number of padding blocks'
     // and finally return 'block ptr : bp' is HDRP of fittable free blocks
-    return bp;
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
+    {
+        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
+        {
+            return bp;
+        }
+    }
+    return NULL; // this means not fit to put. 
+}
+
+static void place(void *bp, size_t asize)
+{
+    size_t will_put_size = GET_SIZE(HDRP(bp));
+    // splitting condition activate
+    if ((will_put_size - asize) >= (2 * DSIZE)) 
+    {
+        PUT(HDRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(asize, 1));
+        bp = NEXT_BLKP(bp);
+        // asize 를 넘는 block 에는 free 상태 -> 0 을 적용한다
+        PUT(HDRP(bp), PACK(will_put_size - asize, 0));
+        PUT(FTRP(bp), PACK(will_put_size - asize, 0));
+    }
+    else
+    {
+        PUT(HDRP(bp), PACK(will_put_size, 1));
+        PUT(FTRP(bp), PACK(will_put_size, 1));
+    }
+
 }
 
 /*
