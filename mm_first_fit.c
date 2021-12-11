@@ -24,15 +24,15 @@
  ********************************************************/
 team_t team = {
     /* Team name */
-    "number one team",
+    "ateam",
     /* First member's full name */
-    "김슬기",
+    "Harry Bovik",
     /* First member's email address */
     "bovik@cs.cmu.edu",
     /* Second member's full name (leave blank if none) */
-    "이종호",
+    "",
     /* Second member's email address (leave blank if none) */
-    "bovik@cs.cmu.edu",
+    ""
 };
 
 /* single word (4) or double word (8) alignment */
@@ -73,8 +73,6 @@ team_t team = {
 // static variable
 static void *heap_listp;
 
-static char *last_fit_bp;
-
 
 /* 
  * mm_init - initialize the malloc package.
@@ -89,7 +87,6 @@ int mm_init(void)
     PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1)); // prologue footer
     PUT(heap_listp + (3*WSIZE), PACK(0, 1)); // Epilogue header
     heap_listp += (2*WSIZE);
-    last_fit_bp = heap_listp;
 
     // Extend the empty heap with a free block of CHUCKSIZE bytes
     if (extend_heap(CHUNKSIZE/WSIZE) == NULL)
@@ -134,31 +131,28 @@ void *mm_malloc(size_t size)
 
     // search the free list for a fit
     // ** We have to make find_fit function & place 
-    if ((bp = next_fit(asize)) != NULL) {
+    if ((bp = find_fit(asize)) != NULL) {
         place(bp, asize);
-        last_fit_bp = bp;
         return bp;
     }
     // no fit found. Get more memory and place the block
     extendsize = MAX(asize, CHUNKSIZE);
     if ((bp = extend_heap(extendsize/WSIZE)) == NULL)
         return NULL;
-    last_fit_bp = bp;
     place(bp, asize);
     return bp;
 }
 
-static void *next_fit(size_t asize)
+static void *find_fit(size_t asize)
 {
-    void *bp;
-    for (bp = last_fit_bp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
-    {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
-        {
-            return bp;
-        }
-    }
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0 && last_fit_bp > bp; bp = NEXT_BLKP(bp))
+    char *bp;
+    // what is the actual function of find_fit? 
+    // Finding proper free blocks that can be contain the asize(input value)
+    // How to find?
+    // get header of blocks, and calculate to extract some information about that blocks
+    // the informations are about 'allocation' 'size' 'number of padding blocks'
+    // and finally return 'block ptr : bp' is HDRP of fittable free blocks
+    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp))
     {
         if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp))))
         {
@@ -230,7 +224,6 @@ static void *coalesce(void *bp)
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
-    last_fit_bp = bp;
     return bp;
 }
 
@@ -246,10 +239,9 @@ void *mm_realloc(void *ptr, size_t size)
     newptr = mm_malloc(size);
     if (newptr == NULL)
       return NULL;
-    // before change => mm_realloc did not preserve the data from old block
-    // copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE); 
-    // what is difference?? 
-    // 전처리기를 사용하느냐 안하냐의 차이? 
+    /* before change: 
+    copySize = *(size_t *)((char *)oldptr - SIZE_T_SIZE); */
+    // what is difference??
     copySize = GET_SIZE(HDRP(oldptr));
     if (size < copySize)
       copySize = size;

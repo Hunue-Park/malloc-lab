@@ -8,7 +8,7 @@ static void *coalesce(void *bp);
 static void *extend_heap(size_t words);
 static void place(void *bp, size_t asize);
 static void *find_fit(size_t asize);
-
+static void *next_fit(size_t asize);
 
 /* 
  * Students work in teams of one or two.  Teams enter their team name, 
