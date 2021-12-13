@@ -154,7 +154,7 @@ bp+WSIZE--> +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+-
 
 team_t team = {
     /* Team name */
-    "ateam",
+    "one team",
     /* First member's full name */
     "Harry Bovik",
     /* First member's email address */
@@ -282,8 +282,8 @@ static void *coalesce(void *ptr)
     
 
     // Do not coalesce with previous block if the previous block is tagged with Reallocation tag
-    if (GET_TAG(HDRP(PREV_BLKP(ptr))))
-        prev_alloc = 1;
+    // if (GET_TAG(HDRP(PREV_BLKP(ptr))))
+    //     prev_alloc = 1;
         // 이전 블록이 re alloc 되어있으면 coalesce 하지말것. 
         // 왜냐하면 re alloc 이면 그 블럭은 나중에 re alloc 할때 buffer 고려해서 
         // re alloc 할때 쓸 수도 있으니까. 
@@ -296,23 +296,23 @@ static void *coalesce(void *ptr)
         delete_node(NEXT_BLKP(ptr));
         // 원래 있던 next free block 과 새로 생기는 free block 을 segregated free list 에서 삭제
         size += GET_SIZE(HDRP(NEXT_BLKP(ptr)));
-        PUT(HDRP(ptr), PACK(size, 0));
-        PUT(FTRP(ptr), PACK(size, 0));
+        PUT_NOTAG(HDRP(ptr), PACK(size, 0));
+        PUT_NOTAG(FTRP(ptr), PACK(size, 0));
         // 여기서 put 은 ra_tag 를 붙이는 put 이다. 
     } else if (!prev_alloc && next_alloc) {                 // Case 3 
         delete_node(ptr);
         delete_node(PREV_BLKP(ptr));
         size += GET_SIZE(HDRP(PREV_BLKP(ptr)));
-        PUT(FTRP(ptr), PACK(size, 0));
-        PUT(HDRP(PREV_BLKP(ptr)), PACK(size, 0));
+        PUT_NOTAG(FTRP(ptr), PACK(size, 0));
+        PUT_NOTAG(HDRP(PREV_BLKP(ptr)), PACK(size, 0));
         ptr = PREV_BLKP(ptr);
     } else {                                                // Case 4
         delete_node(ptr);
         delete_node(PREV_BLKP(ptr));
         delete_node(NEXT_BLKP(ptr));
         size += GET_SIZE(HDRP(PREV_BLKP(ptr))) + GET_SIZE(HDRP(NEXT_BLKP(ptr)));
-        PUT(HDRP(PREV_BLKP(ptr)), PACK(size, 0));
-        PUT(FTRP(NEXT_BLKP(ptr)), PACK(size, 0));
+        PUT_NOTAG(HDRP(PREV_BLKP(ptr)), PACK(size, 0));
+        PUT_NOTAG(FTRP(NEXT_BLKP(ptr)), PACK(size, 0));
         ptr = PREV_BLKP(ptr);
     }
     
@@ -337,18 +337,19 @@ static void *place(void *ptr, size_t asize)
     // minimum free block 이 2 * DSIZE 만큼의 크기를 가지므로
     // header + prev_ptr + succ_ptr + footer => 4 words 
         // Do not split block 
-        PUT(HDRP(ptr), PACK(ptr_size, 1)); 
-        PUT(FTRP(ptr), PACK(ptr_size, 1)); 
+        PUT_NOTAG(HDRP(ptr), PACK(ptr_size, 1)); 
+        // 얘네는 notag로 바꿔도 문제 없음. 
+        PUT_NOTAG(FTRP(ptr), PACK(ptr_size, 1)); 
         // 어쨌든 이 allocated block 이 나중에 free block 으로 바뀌었을때 최소 5word의 크기를
         // 가지는 거니까 re allocation 에 쓸수도 있다. 
     }
     
     else if (asize >= 100) {
         // Split block
-        PUT(HDRP(ptr), PACK(remainder, 0));
+        PUT_NOTAG(HDRP(ptr), PACK(remainder, 0));
         // 여기서 생기는 remainder free block 은 사이즈가 꽤 커서 나중에 re allocation 할때 
         // 쓸수도 있으니까 ra tag 를 붙여서 남겨놓는다. 
-        PUT(FTRP(ptr), PACK(remainder, 0));
+        PUT_NOTAG(FTRP(ptr), PACK(remainder, 0));
         // pack 에 들어가는 size는 binary 다 
         PUT_NOTAG(HDRP(NEXT_BLKP(ptr)), PACK(asize, 1));
         // RA tag 없이 allocation 하기만 하면 됨. 
@@ -363,15 +364,15 @@ static void *place(void *ptr, size_t asize)
     else { // 이 else 는 asize >= 100 이지만 reaminder < 4 word 인 경우다. 
         // 그래서 어차피 이 remainder 는 남겨봤자 re allocation 할때 못쓰니까 put no tag 임. 
         // Split block
-        PUT(HDRP(ptr), PACK(asize, 1)); 
-        PUT(FTRP(ptr), PACK(asize, 1)); 
+        PUT_NOTAG(HDRP(ptr), PACK(asize, 1)); 
+        PUT_NOTAG(FTRP(ptr), PACK(asize, 1)); 
         PUT_NOTAG(HDRP(NEXT_BLKP(ptr)), PACK(remainder, 0)); 
         PUT_NOTAG(FTRP(NEXT_BLKP(ptr)), PACK(remainder, 0)); 
         // 왜 이 remainder에는 ra tag 를 안붙이고 free 로 split 하는 걸까 
         insert_node(NEXT_BLKP(ptr), remainder);
     }
     return ptr;
-}
+} // 왜 place 함수에는 싹다 no tag 로 붙여도 되는걸까 
 
 
 
@@ -451,7 +452,7 @@ void *mm_malloc(size_t size)
         if ((list == LISTLIMIT - 1) || ((searchsize <= 1) && (segregated_free_lists[list] != NULL))) {
             ptr = segregated_free_lists[list];
             // Ignore blocks that are too small or marked with the reallocation bit
-            while ((ptr != NULL) && ((asize > GET_SIZE(HDRP(ptr))) || (GET_TAG(HDRP(ptr)))))
+            while ((ptr != NULL) && ((asize > GET_SIZE(HDRP(ptr))) ))
             // 여기서 get tag 가 RA 여부를 알려주는 매크로. 
             // 즉 앞 조건을 만족하거나 해당 free block 의 RA tag 가 1 이면 지나간다 왜?
             {
@@ -493,10 +494,10 @@ void mm_free(void *ptr)
 {
     size_t size = GET_SIZE(HDRP(ptr));
  
-    REMOVE_RATAG(HDRP(NEXT_BLKP(ptr)));
+    // REMOVE_RATAG(HDRP(NEXT_BLKP(ptr)));
     // next block 의 header 에 들어있는 RA tag 를 없애준다. 
-    PUT(HDRP(ptr), PACK(size, 0));
-    PUT(FTRP(ptr), PACK(size, 0));
+    PUT_NOTAG(HDRP(ptr), PACK(size, 0));
+    PUT_NOTAG(FTRP(ptr), PACK(size, 0));
     // 새로 만들어지는 free block 에는 RA tag 붙임. 
     
     insert_node(ptr, size);
@@ -570,18 +571,9 @@ void *mm_realloc(void *ptr, size_t size)
     }
     
     // Tag the next block if block overhead drops below twice the overhead 
-    if (block_buffer < 2 * REALLOC_BUFFER)
-        SET_RATAG(HDRP(NEXT_BLKP(new_ptr)));
+    // if (block_buffer < 2 * REALLOC_BUFFER)
+    //     SET_RATAG(HDRP(NEXT_BLKP(new_ptr)));
     
     // Return the reallocated block 
     return new_ptr;
 }
-
-
-
-
-
-
-
-
-
