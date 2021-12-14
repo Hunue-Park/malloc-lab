@@ -231,7 +231,7 @@ static void *coalesce(void *bp)
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp);
     }
-    last_fit_bp = bp;
+    // last_fit_bp = bp;
     return bp;
 }
 
