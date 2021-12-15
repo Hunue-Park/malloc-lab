@@ -344,7 +344,7 @@ static void *place(void *ptr, size_t asize)
         // 가지는 거니까 re allocation 에 쓸수도 있다. 
     }
     
-    else if (asize >= 100) {
+    else if (asize >= 73) {
         // Split block
         PUT_NOTAG(HDRP(ptr), PACK(remainder, 0));
         // 여기서 생기는 remainder free block 은 사이즈가 꽤 커서 나중에 re allocation 할때 
