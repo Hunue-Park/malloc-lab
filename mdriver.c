@@ -336,7 +336,8 @@ int main(int argc, char **argv)
     if (errors == 0) {
 	avg_mm_throughput = ops/secs;
 
-	p1 = UTIL_WEIGHT * avg_mm_util;
+	// p1 = UTIL_WEIGHT * avg_mm_util;
+	p1  = avg_mm_util;
 	if (avg_mm_throughput > AVG_LIBC_THRUPUT) {
 	    p2 = (double)(1.0 - UTIL_WEIGHT);
 	} 
@@ -344,9 +345,9 @@ int main(int argc, char **argv)
 	    p2 = ((double) (1.0 - UTIL_WEIGHT)) * 
 		(avg_mm_throughput/AVG_LIBC_THRUPUT);
 	}
-	
+	p2 = avg_mm_throughput/AVG_LIBC_THRUPUT;
 	perfindex = (p1 + p2)*100.0;
-	printf("Perf index = %.0f (util) + %.0f (thru) = %.0f/100\n",
+	printf("Perf index = %f (util) + %f (thru) = %f/100\n",
 	       p1*100, 
 	       p2*100, 
 	       perfindex);
@@ -596,6 +597,7 @@ static int eval_mm_valid(trace_t *trace, int tracenum, range_t **ranges)
 
     /* Interpret each operation in the trace in order */
     for (i = 0;  i < trace->num_ops;  i++) {
+		
 	index = trace->ops[i].index;
 	size = trace->ops[i].size;
 
@@ -711,6 +713,7 @@ static double eval_mm_util(trace_t *trace, int tracenum, range_t **ranges)
 	app_error("mm_init failed in eval_mm_util");
 
     for (i = 0;  i < trace->num_ops;  i++) {
+		// printf("%d-th trace\n", i);
         switch (trace->ops[i].type) {
 
         case ALLOC: /* mm_alloc */
@@ -731,6 +734,8 @@ static double eval_mm_util(trace_t *trace, int tracenum, range_t **ranges)
 	    /* Update statistics */
 	    max_total_size = (total_size > max_total_size) ?
 		total_size : max_total_size;
+		// printf("[alloc] max_total_size:%d, totalsize:%d, size:%d\n", max_total_size, total_size, size);
+		// printf("[heapsize] %d\n", mem_heapsize());
 	    break;
 
 	case REALLOC: /* mm_realloc */
@@ -765,7 +770,7 @@ static double eval_mm_util(trace_t *trace, int tracenum, range_t **ranges)
 	    /* Keep track of current total size
 	     * of all allocated blocks */
 	    total_size -= size;
-	    
+	    // printf("[free] max_total_size:%d, totalsize:%d, size:%d\n", max_total_size, total_size, size);
 	    break;
 
 	default:
@@ -773,7 +778,8 @@ static double eval_mm_util(trace_t *trace, int tracenum, range_t **ranges)
 
         }
     }
-
+	// printf("last max_total size:%d\n", max_total_size);
+	// printf("final Heap size:%d\n", mem_heapsize());
     return ((double)max_total_size / (double)mem_heapsize());
 }
 

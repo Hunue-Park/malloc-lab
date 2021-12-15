@@ -30,9 +30,9 @@
   "random-bal.rep",\
   "random2-bal.rep",\
   "binary-bal.rep",\
-  "binary2-bal.rep",\
-  "realloc-bal.rep",\
-  "realloc2-bal.rep"
+  "binary2-bal.rep"
+  // "realloc-bal.rep",\
+  // "realloc2-bal.rep"
 
 /*
  * This constant gives the estimated performance of the libc malloc
@@ -60,7 +60,7 @@
 /* 
  * Maximum heap size in bytes 
  */
-#define MAX_HEAP (20*(1<<20))  /* 20 MB */
+#define MAX_HEAP (2*(1<<28))  /* 20 MB , 2GB for buddy*/ 
 
 /*****************************************************************************
  * Set exactly one of these USE_xxx constants to "1" to select a timing method
